@@ -1,26 +1,133 @@
-import configparser
-import sys
 import os
-
+import sys
 import subprocess
+import configparser
+
+from time import sleep
+from threading import Thread
 from subprocess import check_output
+
+from pynput.mouse import Button, Controller
 
 import gi
 gi.require_version('Gtk', '3.0')
+gi.require_version('Notify', '0.7')
 
-from gi.repository import GLib, Gio, Gtk
+from gi.repository import GLib, Gio, Gtk, Notify
+from gi.repository.Gio import File
 
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
-class GladeApplication(object):
+mouse_handler = Controller()
+is_inhibit_on = False
+
+def do_start_intel():
+    print('Starting Intel Virtual Output')
+    try:
+        intel_pid = check_output(["pidof", "intel-virtual-output"])
+        print ("Process Exists")
+        hello = Notify.Notification.new("Bumblebee Tools", "Intel Virtual Output is already running.", "dialog-information")
+        hello.show()
+
+
+    except subprocess.CalledProcessError:
+        print ("Process doesnt exists. Starting a new instance")
+        subprocess.run(["intel-virtual-output"])
+
+        hello = Notify.Notification.new("Bumblebee Tools", "Enabling Intel Virtual Output", "dialog-information")
+        hello.show()
+
+
+def do_toggle_inhibit():
+    global is_inhibit_on
+    global mouse_handler
+
+    is_inhibit_on = not is_inhibit_on
+
+    is_inhibit_on_str = 'ON' if is_inhibit_on else 'OFF'
+    hello = Notify.Notification.new(
+        "Bumblebee Tools", 
+        f"Enable Inhibit {is_inhibit_on_str}", 
+        "dialog-information")
+
+    if is_inhibit_on:
+        thread = Thread(target=do_inhibit_thread, 
+                        args=(mouse_handler, lambda: not is_inhibit_on))
+        thread.start()
+
+    hello.show()
+
+    return is_inhibit_on
+
+def do_stop_inhibit():
+    global is_inhibit_on
+    is_inhibit_on = False
+    print('Stop Inhibit')
+
+def do_inhibit_thread(mouse_hander, stop_flag):
+    while True:
+        sleep(5)
+        mouse_handler.move(10, -10)
+        mouse_handler.move(-10, 10)
+
+        print('Acting')
+        if stop_flag():
+            print('Break Thread detected. Stopping')
+            break
+
+
+class GladeGtkBuilder:
+    _instance = None
+
     glade_file = os.path.join(BASE_DIR, 'optimus_tools.glade')
 
     def __init__(self):
+        self.gtk_builder = Gtk.Builder.new_from_file(self.glade_file)
+
+    '''
+    @classmethod
+    def instance(cls):
+        if cls.instance is None:
+            cls._instance = cls()
+        return cls._instance
+    '''
+
+class GladeApplication(object):
+    def __init__(self):
         try:
-            self.gtk_builder = Gtk.Builder.new_from_file(self.glade_file)
+            self.gtk_builder = GladeGtkBuilder().gtk_builder
         except GObject.GError:
             raise OsError("Error reading GUI file")
+
+    def get_window(self):
+        return self.main_window
+
+
+
+class AppAboutWindow(GladeApplication):
+    def __init__(self, application, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.application = application
+
+        self.gtk_builder.connect_signals({
+            'btn_open_github': (self.btn_open_github, ),
+            'close': (self.close, )
+        })
+
+        self.main_window = self.gtk_builder.get_object("about_window")
+        self.main_window.set_application(application)
+
+        self.main_window.show()
+
+    def btn_open_github(self, item):
+        print ('OpenGH')  #self.application.open([Gio.File.new_from_uri('http://github.com/joepreludian')])
+
+    def close(self, *args):
+        print('Closed')
+        self.main_window.destroy()
+
 
 
 class AppMainWindow(GladeApplication):
@@ -30,35 +137,28 @@ class AppMainWindow(GladeApplication):
         self.application = application
 
         self.gtk_builder.connect_signals({
+            'btn_open_about': (self.btn_open_about,), 
             'btn_do_not_sleep': (self.btn_do_not_sleep, ),
             'btn_start_intel_virtual_output': (self.btn_start_intel_virtual_output, ),
             'close': (self.close, )
         })
 
-        main_menu_bar = self.gtk_builder.get_object('main_menu')
         self.main_window = self.gtk_builder.get_object("main_window")
-        self.main_window.set_application(application)
+        self.main_window.set_application(self.application)
 
         self.main_window.show()
 
+    def btn_open_about(self, item):
+        self.about_window = AppAboutWindow(self.application)
 
     def btn_do_not_sleep(self, item):
-        print('NOT SLEEP CLICKED')
+        do_toggle_inhibit()
 
     def btn_start_intel_virtual_output(self, item):
-        print('Starting Intel Virtual Output')
-        try:
-            intel_pid = check_output(["pidof", "intel-virtual-output"])
-            print ("Process Exists")
-        except subprocess.CalledProcessError:
-            print ("Process doesnt exists. Starting a new instance")
-        #$subprocess.run(["intel-virtual-output"])
+        do_start_intel()
 
     def close(self, *args):
         self.main_window.destroy()
-
-    def get_window(self):
-        return self.main_window
 
 
 class Application(Gtk.Application):
@@ -70,10 +170,13 @@ class Application(Gtk.Application):
                          **kwargs)
 
         self.add_main_option("start-intel", ord("t"), GLib.OptionFlags.NONE,
-                             GLib.OptionArg.NONE, "Start a service", None)
+                             GLib.OptionArg.NONE, "Start Intel Virtual Output", None)
 
         self.add_main_option("start-display-inhibit", ord("t"), GLib.OptionFlags.NONE,
-                             GLib.OptionArg.NONE, "Start a service", None)
+                             GLib.OptionArg.NONE, "Start and enable display inhibit", None)
+
+        self.register()
+        Notify.init("Bumblebee Tools")
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
@@ -81,30 +184,28 @@ class Application(Gtk.Application):
     def do_activate(self):
         self.main_window = AppMainWindow(self)  #Bootstrapping Window
 
-    # Handle command line info
     def do_command_line(self, command_line):
         options = command_line.get_options_dict()
-        # convert GVariantDict -> GVariant -> dict
         options = options.end().unpack()
 
         if "start-intel" in options:
-            print("Start Intel")
-
+            do_start_intel()
         elif "start-display-inhibit" in options:
-            print ("Activate Inhibit")
-
+            do_toggle_inhibit()
+            self.activate()
         else:
             self.activate()
 
         return 0
 
-    def on_about(self, action, param):
-        about_dialog = AppAboutDialog(application=self, transient_for=self.main_window.get_window())
-
     def on_quit(self, action, param):
+        do_stop_inhibit()
         self.quit()
 
 
 def init():
     app = Application()
     app.run(sys.argv)
+
+if __name__ == '__main__':
+    init()

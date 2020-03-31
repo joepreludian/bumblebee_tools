@@ -2,21 +2,20 @@
 Encoding=UTF-8
 Version=1.0
 Type=Application
-Terminal=true
 Icon=transmission
-
 Name=Bumblebee Utils
-Exec=bumblebee_utils
-
+Exec=/home/joey/.pyenv/shims/bumblebee_tools
 StartupNotify=true
 #MimeType=application/x-bittorrent;x-scheme-handler/magnet;
 #Categories=Network;FileTransfer;P2P;GTK;
+X-GNOME-UsesNotifications=true
 Actions=IntelVO;Inhibit;
+Terminal=false
 
 [Desktop Action IntelVO]
 Name=Start Intel-Virtual-Output
-Exec=bumblebee_utils
+Exec=/home/joey/.pyenv/shims/bumblebee_tools --start-intel
 
 [Desktop Action Inhibit]
 Name=Inhibit Sleep Screen
-Exec=bumblebee_utils
+Exec=/home/joey/.pyenv/shims/bumblebee_tools --start-display-inhibit

@@ -2,7 +2,7 @@
 <!-- Generated with glade 3.22.2 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
-  <object class="GtkAboutDialog" id="about_dialog">
+  <object class="GtkAboutDialog" id="about_window">
     <property name="can_focus">False</property>
     <property name="type_hint">dialog</property>
     <property name="program_name">Bumblebee Utils</property>
@@ -30,6 +30,7 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="activate" handler="btn_open_github" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -169,16 +170,17 @@
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="btn_open_github">
-                <property name="label" translatable="yes">See us on Github</property>
-                <property name="width_request">141</property>
+              <object class="GtkButton" id="btn_open_about">
+                <property name="label" translatable="yes">About</property>
+                <property name="width_request">71</property>
                 <property name="height_request">32</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <signal name="clicked" handler="btn_open_about" swapped="no"/>
               </object>
               <packing>
-                <property name="x">243</property>
+                <property name="x">311</property>
                 <property name="y">128</property>
               </packing>
             </child>

@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 e1839a8 = {editable = true,path = "."}
 optimus-tools = {editable = true,path = "."}
+pynput = "*"
 
 [requires]
 python_version = "3.8"
