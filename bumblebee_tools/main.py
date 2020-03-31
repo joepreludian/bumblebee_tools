@@ -77,26 +77,13 @@ def do_inhibit_thread(mouse_hander, stop_flag):
             break
 
 
-class GladeGtkBuilder:
-    _instance = None
-
-    glade_file = os.path.join(BASE_DIR, 'optimus_tools.glade')
-
-    def __init__(self):
-        self.gtk_builder = Gtk.Builder.new_from_file(self.glade_file)
-
-    '''
-    @classmethod
-    def instance(cls):
-        if cls.instance is None:
-            cls._instance = cls()
-        return cls._instance
-    '''
-
 class GladeApplication(object):
+    glade_file = None
+
     def __init__(self):
         try:
-            self.gtk_builder = GladeGtkBuilder().gtk_builder
+            glade_file = os.path.join(BASE_DIR, self.glade_file)
+            self.gtk_builder = Gtk.Builder.new_from_file(glade_file)
         except GObject.GError:
             raise OsError("Error reading GUI file")
 
@@ -106,6 +93,9 @@ class GladeApplication(object):
 
 
 class AppAboutWindow(GladeApplication):
+
+    glade_file = 'about_window.glade'
+
     def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -118,19 +108,21 @@ class AppAboutWindow(GladeApplication):
 
         self.main_window = self.gtk_builder.get_object("about_window")
         self.main_window.set_application(application)
-
         self.main_window.show()
 
     def btn_open_github(self, item):
-        print ('OpenGH')  #self.application.open([Gio.File.new_from_uri('http://github.com/joepreludian')])
+        Gtk.show_uri_on_window(self.main_window, 'https://github.com/joepreludian/bumblebee_tools', 1)
 
     def close(self, *args):
-        print('Closed')
+        print('Close about')
         self.main_window.destroy()
 
 
 
 class AppMainWindow(GladeApplication):
+
+    glade_file = 'main_window.glade'
+
     def __init__(self, application, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -140,7 +132,7 @@ class AppMainWindow(GladeApplication):
             'btn_open_about': (self.btn_open_about,), 
             'btn_do_not_sleep': (self.btn_do_not_sleep, ),
             'btn_start_intel_virtual_output': (self.btn_start_intel_virtual_output, ),
-            'close': (self.close, )
+            'on_destroy': (self.close, )
         })
 
         self.main_window = self.gtk_builder.get_object("main_window")
@@ -158,6 +150,8 @@ class AppMainWindow(GladeApplication):
         do_start_intel()
 
     def close(self, *args):
+        print('Closing main')
+        do_stop_inhibit()
         self.main_window.destroy()
 
 
@@ -199,7 +193,7 @@ class Application(Gtk.Application):
         return 0
 
     def on_quit(self, action, param):
-        do_stop_inhibit()
+        print ('Exitting')
         self.quit()
 
 
